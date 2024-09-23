@@ -1,90 +1,151 @@
-document.querySelectorAll('.flip-card').forEach(card => {
-    card.addEventListener('click', () => {
-        card.querySelector('.flip-card-inner').classList.toggle('active');
-    });
-});
+const words = [
+    { word: "Привет", translation: "Hello", example: "Привет, как дела?" },
+    { word: "Спасибо", translation: "Thank you", example: "Спасибо за помощь." },
+    { word: "Пожалуйста", translation: "You’re welcome", example: "Пожалуйста, не за что." },
+    { word: "Извините", translation: "Sorry", example: "Извините за опоздание." },
+    { word: "Помогите", translation: "Help", example: "Помогите мне, пожалуйста." },
+];
 
 let currentIndex = 0;
-const cards = document.querySelectorAll('.flip-card');
-const totalWords = cards.length;
+let testMode = false;
+let selectedCards = [];
+let correctPairs = 0;
+let totalPairs = words.length;
 
-function updateCardDisplay() {
-    cards.forEach((card, index) => {
-        card.style.display = (index === currentIndex) ? 'flex' : 'none';
+document.addEventListener("DOMContentLoaded", () => {
+    updateDisplay();
+
+    document.getElementById("next").addEventListener("click", () => {
+        currentIndex++;
+        if (currentIndex >= words.length) {
+            currentIndex = 0;
+        }
+        updateDisplay();
     });
 
-    document.getElementById('current-word').textContent = currentIndex + 1; // для отображения текущего слова
-    document.getElementById('back').disabled = currentIndex === 0; // блокировка кнопки назад
-    document.getElementById('next').disabled = currentIndex === totalWords - 1; // блокировка кнопки вперед
+    document.getElementById("back").addEventListener("click", () => {
+        currentIndex--;
+        if (currentIndex < 0) {
+            currentIndex = words.length - 1;
+        }
+        updateDisplay();
+    });
+
+    document.getElementById("shuffle-words").addEventListener("click", shuffleWords);
+    document.getElementById("exam").addEventListener("click", startExam);
+});
+
+// Обновление дисплея
+function updateDisplay() {
+    const currentWord = words[currentIndex];
+    document.querySelector("#card-front h1").innerText = currentWord.word;
+    document.querySelector("#card-back h1").innerText = currentWord.translation;
+    document.querySelector("#card-back span").innerText = currentWord.example;
+    document.getElementById("current-word").innerText = currentIndex + 1; // Отсчет с единицы
+    document.getElementById("total-word").innerText = words.length;
+
+    // Обновление прогресса
+    document.getElementById("words-progress").value = ((currentIndex + 1) / words.length) * 100;
+
+    // Сброс активной карточки
+    const flipCard = document.querySelector(".flip-card");
+    flipCard.classList.remove("active");
+
+    // Добавляем обработчик нажатия для переворота карточки
+    flipCard.onclick = () => {
+        flipCard.classList.toggle("active"); // Переворот карточки
+    };
 }
 
-// Обработчики кликов для кнопок "Назад" и "Вперед"
-document.getElementById('back').addEventListener('click', () => {
-    if (currentIndex > 0) {
-        currentIndex--;
-        updateCardDisplay();
+// Перемешивание слов
+function shuffleWords() {
+    for (let i = words.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [words[i], words[j]] = [words[j], words[i]];
     }
-});
+    currentIndex = 0;
+    updateDisplay();
+}
 
-document.getElementById('next').addEventListener('click', () => {
-    if (currentIndex < totalWords - 1) {
-        currentIndex++;
-        updateCardDisplay();
-    }
-});
+// Запускает режим тестирования
+function startExam() {
+    testMode = true;
+    document.getElementById("study-mode").classList.add("hidden");
+    document.getElementById("exam-mode").classList.remove("hidden");
+    initExamCards();
+}
 
-// Вызов функции для первоначального отображения карточки
-updateCardDisplay();
+// Инициализирует карточки для теста
+function initExamCards() {
+    const examCardsContainer = document.getElementById("exam-cards");
+    examCardsContainer.innerHTML = '';
 
-document.getElementById('exam').addEventListener('click', () => {
-    document.getElementById('study-mode').classList.add('hidden');
-    document.getElementById('exam-mode').classList.remove('hidden');
+    // Создаем копию массива с словами и перемешиваем
+    const shuffledWords = [...words].sort(() => Math.random() - 0.5);
 
-    const examCards = [...cards];
-    shuffle(examCards); // Вызов функции перемешивания карточек
-    examCards.forEach(card => {
-        card.style.display = 'flex'; // Показываем карточки
-        card.querySelector('.flip-card-inner').classList.remove('active'); // Убираем переворот
+    shuffledWords.forEach((word) => {
+        const card = document.createElement("div");
+        card.classList.add("flip-card");
+        card.innerHTML = `
+    <div class="flip-card-inner">
+    <div class="flip-card-front">
+    <h1>${word.word}</h1>
+    </div>
+    <div class="flip-card-back">
+    <h1>${word.translation}</h1>
+    </div>
+    </div>
+    `;
+
+        // Добавляем обработчик клика для переворота карточек
+        card.onclick = () => {
+            card.classList.toggle("active"); // Переворот карточки
+            handleExamCardClick(card, word);
+        };
+
+        examCardsContainer.appendChild(card);
     });
-});
+}
 
-let firstCard = null;
-let secondCard = null;
+// Обрабатывает клик по карточке в тесте
+function handleExamCardClick(card, word) {
+    if (selectedCards.length < 2 && !card.classList.contains("correct") && !card.classList.contains("wrong")) {
+        card.classList.add("active");
+        selectedCards.push(card);
 
-examCards.forEach(card => {
-    card.addEventListener('click', () => {
-        if (!firstCard) {
-            firstCard = card;
-            firstCard.classList.add('correct'); // подсвечиваем первую карточку
-        } else if (!secondCard) {
-            secondCard = card;
-            secondCard.classList.add('wrong'); // подсвечиваем вторую карточку
-
-            // Сравните карточки
-            if (firstCard.getAttribute('data-word') === secondCard.getAttribute('data-translation')) {
-                firstCard.classList.add('fade-out');
-                secondCard.classList.add('fade-out');
-
-                // Сброс карточек
-                firstCard = null;
-                secondCard = null;
-
-                // Удалить карточки из DOM, если требуется
-                // Можно добавить код для удаления из массива
-            } else {
-                // Неправильный ответ
-                setTimeout(() => {
-                    secondCard.classList.remove('wrong');
-                    secondCard = null; // Сброс
-                }, 1000);
-
-                firstCard = null; // Сброс
-            }
+        // Если это первая карточка
+        if (selectedCards.length === 1) {
+            card.classList.add("correct");
+        } else if (selectedCards.length === 2) {
+            evaluateSelectedCards(selectedCards, word);
         }
-    });
-});
+    }
+}
 
-// После удаления карточек из DOM проверки
-if (matchedPairs === examCards.length) {
-    alert('Проверка завершена!');
+// Оценивает выбранные карточки
+function evaluateSelectedCards(cards) {
+    const firstCardWord = cards[0].querySelector(".flip-card-front h1").innerText;
+    const secondCardWord = cards[1].querySelector(".flip-card-back h1").innerText;
+
+    // Если словосочетания совпадают
+    if (firstCardWord === secondCardWord) {
+        cards.forEach((card) => {
+            card.classList.add("fade-out");
+            card.classList.add("correct");
+            correctPairs++;
+        });
+
+        // Проверяем, были ли собраны все пары
+        if (correctPairs === totalPairs) {
+            setTimeout(() => alert("Поздравляю! Вы прошли тест!"), 500);
+        }
+    } else {
+        cards[1].classList.add("wrong");
+        setTimeout(() => {
+            cards[1].classList.remove("wrong");
+            cards.forEach((card) => card.classList.remove("active"));
+        }, 1000);
+    }
+
+    selectedCards = []; // Сброс выбранных карточек
 }
